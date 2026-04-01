@@ -1,7 +1,16 @@
+import os
+import uuid
+import glob
+import json
+import subprocess
+import threading
+import sys
 import time
 import re
 from flask import Flask, request, jsonify, send_file, render_template
 from googleapiclient.discovery import build
+
+app = Flask(__name__)
 
 try:
     import imageio_ffmpeg
