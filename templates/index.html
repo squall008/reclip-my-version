@@ -670,7 +670,7 @@
       const c = cardData[idx];
       if (!c.jobId) return;
       const a = document.createElement('a');
-      a.href = `/api/download/${c.jobId}`;
+      a.href = `/api/file/${c.jobId}`;
       a.download = c.filename || '';
       a.click();
     }

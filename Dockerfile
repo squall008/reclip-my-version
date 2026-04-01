@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates && \
+    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates unzip && \
     curl -fsSL https://deno.land/install.sh | sh && \
     rm -rf /var/lib/apt/lists/*
 

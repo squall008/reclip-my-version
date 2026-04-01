@@ -34,20 +34,28 @@ if YOUTUBE_API_KEY:
 
 jobs = {}
 
-def get_cookies_opt():
-    """プロジェクトルートにあるクッキーファイルを自動検知して適用"""
+def get_ydl_base_opts():
+    """ボット回避とクッキーの全設定を生成して返す最強の盾"""
+    cmd = [
+        "--cache-dir", CACHE_DIR,
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+        "--add-header", "Referer: https://www.google.com/",
+        "--extractor-args", "youtube:player-client=android", # 2025年最新突破クライアント
+        "--no-check-certificates"
+    ]
+    
     # 候補となるファイル名
     candidates = ["cookies.txt", "www.youtube.com_cookies.txt", "youtube.com_cookies.txt"]
-    
-    # 探索: 直接指定または _cookies.txt で終わるファイル
     current_dir = os.path.dirname(__file__)
     for filename in os.listdir(current_dir):
         if filename in candidates or filename.endswith("_cookies.txt"):
             path = os.path.join(current_dir, filename)
             if os.path.isfile(path) and os.path.getsize(path) > 0:
-                print(f"Applied cookies: {filename}")
-                return ["--cookies", path]
-    return []
+                print(f"Applied bot-evasion shield with cookies: {filename}")
+                cmd += ["--cookies", path]
+                break
+    return cmd
 
 def get_video_id(url):
     """URLから動画IDを抽出"""
@@ -66,17 +74,8 @@ def run_download(job_id, url, format_choice, format_id):
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
     cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-o", out_template]
-    
-    # 認証とボット回避オプション
-    cmd += get_cookies_opt() # クッキー対応
-    cmd += [
-        "--cache-dir", CACHE_DIR,
-        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-        "--add-header", "Referer: https://www.google.com/",
-        "--extractor-args", "youtube:player-client=android", # 2025年時点の推奨クライアント
-        "--no-check-certificates"
-    ]
+    # 共通のボット回避設定を適用
+    cmd += get_ydl_base_opts()
 
     if ffmpeg_path:
         cmd += ["--ffmpeg-location", ffmpeg_path]
@@ -161,8 +160,8 @@ def get_info():
                 item = res["items"][0]
                 snip = item["snippet"]
                 # yt-dlpから補足情報を取得（形式リストなど）
-                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--cache-dir", CACHE_DIR]
-                cmd += get_cookies_opt()
+                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j"]
+                cmd += get_ydl_base_opts()
                 cmd += [url]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 if result.returncode != 0:
@@ -187,8 +186,8 @@ def get_info():
             print(f"API Error: {e}")
 
     # API失敗またはフォールバック
-    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--cache-dir", CACHE_DIR]
-    cmd += get_cookies_opt()
+    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j"]
+    cmd += get_ydl_base_opts()
     cmd += [url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
