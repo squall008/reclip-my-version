@@ -75,7 +75,6 @@ def run_download(job_id, url, format_choice, format_id):
         "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
         "--add-header", "Referer: https://www.google.com/",
         "--extractor-args", "youtube:player-client=ios",
-        "--module-name", "yt_dlp",
         "--no-check-certificates"
     ]
 
