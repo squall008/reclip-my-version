@@ -33,7 +33,13 @@ if YOUTUBE_API_KEY:
         print(f"Failed to init YouTube API: {e}")
 
 jobs = {}
-auth_session = {"code": None, "url": None, "status": "idle"}
+
+def get_cookies_opt():
+    """プロジェクトルートに cookies.txt があればオプションに追加"""
+    path = os.path.join(os.path.dirname(__file__), "cookies.txt")
+    if os.path.exists(path):
+        return ["--cookies", path]
+    return []
 
 def get_video_id(url):
     """URLから動画IDを抽出"""
@@ -54,13 +60,14 @@ def run_download(job_id, url, format_choice, format_id):
     cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-o", out_template]
     
     # 認証とボット回避オプション
+    cmd += get_cookies_opt() # クッキー対応
     cmd += [
-        "--username", "oauth2", "--password", "", # OAuth2認証を使用
         "--cache-dir", CACHE_DIR,
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
         "--add-header", "Referer: https://www.google.com/",
         "--extractor-args", "youtube:player-client=ios",
+        "--module-name", "yt_dlp",
         "--no-check-certificates"
     ]
 
@@ -147,7 +154,9 @@ def get_info():
                 item = res["items"][0]
                 snip = item["snippet"]
                 # yt-dlpから補足情報を取得（形式リストなど）
-                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, url]
+                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--cache-dir", CACHE_DIR]
+                cmd += get_cookies_opt()
+                cmd += [url]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 formats = []
                 if result.returncode == 0:
@@ -169,13 +178,15 @@ def get_info():
             print(f"API Error: {e}")
 
     # API失敗またはフォールバック
-    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, url]
+    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--cache-dir", CACHE_DIR]
+    cmd += get_cookies_opt()
+    cmd += [url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
             err = result.stderr.strip()
             if "Sign in" in err or "confirm you're not a bot" in err:
-                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、認証（御札）が必要です"}), 401
+                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、クッキーを適用してください（cookies.txt）"}), 401
             return jsonify({"error": err.split("\n")[-1]}), 400
 
         info = json.loads(result.stdout)
@@ -201,34 +212,6 @@ def get_info():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
-@app.route("/api/auth/start")
-def auth_start():
-    """yt-dlpのOAuth2デバイス認証を開始"""
-    def run_auth():
-        auth_session["status"] = "authenticating"
-        # 認証用にダミーの取得を走らせる
-        cmd = [sys.executable, "-m", "yt_dlp", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in iter(proc.stdout.readline, ''):
-            m = re.search(r"code ([A-Z0-9-]+)", line)
-            if m:
-                auth_session["code"] = m.group(1)
-                auth_session["url"] = "https://www.google.com/device"
-            if "Successfully logged in" in line:
-                auth_session["status"] = "success"
-                break
-        proc.wait()
-        if auth_session["status"] != "success":
-            auth_session["status"] = "error"
-
-    threading.Thread(target=run_auth, daemon=True).start()
-    return jsonify({"status": "started"})
-
-@app.route("/api/auth/status")
-def auth_status():
-    return jsonify(auth_session)
-
 
 
 @app.route("/api/download", methods=["POST"])

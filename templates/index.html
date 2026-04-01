@@ -174,7 +174,6 @@
       object-fit: cover;
       display: block;
     }
-    /* No-thumbnail icon */
     .card-thumb .no-thumb {
       width: 100%;
       height: 100%;
@@ -288,7 +287,6 @@
     }
     .q-chip:hover:not(.active) { border-color: var(--muted); }
 
-    /* Error card */
     .card.card-error {
       border-color: rgba(196, 61, 61, 0.2);
       background: rgba(196, 61, 61, 0.03);
@@ -319,7 +317,6 @@
       margin-top: 4px;
     }
 
-    /* Download all bar */
     .dl-all-bar {
       display: flex;
       gap: 10px;
@@ -363,7 +360,6 @@
       line-height: 1.8;
     }
 
-    /* Mobile */
     @media (max-width: 500px) {
       .brand h1 { font-size: 3rem; }
       .page { padding: 40px 16px 60px; }
@@ -376,74 +372,6 @@
       .card-title { white-space: normal; }
       .controls { flex-wrap: wrap; }
       .fetch-btn { width: 100%; }
-    }
-
-    /* Auth Modal / Ofuda Style */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-    .modal-overlay.open { opacity: 1; pointer-events: auto; }
-
-    .ofuda {
-      background: #fff;
-      width: 300px;
-      padding: 40px 20px;
-      border: 3px double #000;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      text-align: center;
-      position: relative;
-      animation: ofudaIn 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
-    }
-    @keyframes ofudaIn {
-      from { transform: scale(0.8) rotate(-5deg); opacity: 0; }
-      to { transform: scale(1) rotate(0); opacity: 1; }
-    }
-    .ofuda-header {
-      font-family: 'Noto Serif JP', serif;
-      font-weight: 700;
-      font-size: 1.4rem;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #000;
-      padding-bottom: 10px;
-    }
-    .ofuda-code {
-      font-size: 2.2rem;
-      font-weight: 700;
-      color: var(--accent);
-      margin: 20px 0;
-      letter-spacing: 0.1em;
-    }
-    .ofuda-desc {
-      font-size: 0.8rem;
-      color: var(--fg);
-      line-height: 1.6;
-      margin-bottom: 20px;
-    }
-    .ofuda-btn {
-      display: inline-block;
-      padding: 10px 20px;
-      background: var(--fg);
-      color: var(--bg);
-      text-decoration: none;
-      font-size: 0.8rem;
-      font-weight: 700;
-      border-radius: 4px;
-    }
-    .ofuda-btn:hover { background: #000; }
-    .ofuda-close {
-      margin-top: 15px;
-      font-size: 0.7rem;
-      color: var(--muted);
-      cursor: pointer;
     }
   </style>
 </head>
@@ -474,19 +402,6 @@
       <a href="/terms" style="color:var(--muted); text-decoration:none; border-bottom:1px solid var(--card-border); padding-bottom: 2px; transition: color 0.2s, border-color 0.2s;" onmouseover="this.style.color='var(--accent)'; this.style.borderColor='var(--accent)';" onmouseout="this.style.color='var(--muted)'; this.style.borderColor='var(--card-border)';">利用規約および免責事項</a>
     </div>
   </div>
-
-  <div id="authModal" class="modal-overlay">
-    <div class="ofuda">
-      <div class="ofuda-header">認証の試練</div>
-      <p class="ofuda-desc">ボットではないことを証明するために、Googleアカウントでの認証が必要です。</p>
-      <div class="ofuda-desc">以下のURLを開き、<br>コードを入力してください。</div>
-      <a id="authUrl" href="https://www.google.com/device" target="_blank" rel="noopener" class="ofuda-btn">google.com/device</a>
-      <div id="authCode" class="ofuda-code">--- ---</div>
-      <div class="ofuda-desc" id="authStatusText">認証の完了を待っています...</div>
-      <div class="ofuda-close" onclick="closeAuth()">閉じる(再実行が必要)</div>
-    </div>
-  </div>
-
 
   <script>
     let currentFormat = 'video';
@@ -558,14 +473,11 @@
 
           if (res.status === 401) {
             const data = await res.json();
-            if (data.error === 'authentication_required') {
-                cardData[idx] = { ...cardData[idx], status: 'info-error', error: '認証が必要です' };
-                renderCard(idx);
-                openAuth();
-                btn.disabled = false;
-                btn.textContent = '取得する';
-                return;
-            }
+            cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.msg || '認証(クッキー)が必要です' };
+            renderCard(idx);
+            btn.disabled = false;
+            btn.textContent = '取得する';
+            return;
           }
 
           const data = await res.json();
@@ -607,7 +519,6 @@
         document.getElementById('cards').appendChild(el);
       }
 
-      // Loading skeleton
       if (c.status === 'loading') {
         el.className = 'card';
         el.innerHTML = `
@@ -620,7 +531,6 @@
         return;
       }
 
-      // Error state
       if (c.status === 'info-error') {
         el.className = 'card card-error';
         el.innerHTML = `
@@ -638,7 +548,6 @@
         return;
       }
 
-      // Ready / downloading / done / error states
       el.className = 'card';
       const isAudio = currentFormat === 'audio';
 
@@ -761,7 +670,7 @@
       const c = cardData[idx];
       if (!c.jobId) return;
       const a = document.createElement('a');
-      a.href = `/api/file/${c.jobId}`;
+      a.href = `/api/download/${c.jobId}`;
       a.download = c.filename || '';
       a.click();
     }
@@ -777,42 +686,6 @@
       }
 
       if (btn) { btn.disabled = false; btn.textContent = 'すべて保存'; }
-    }
-
-    // Auth Logic
-    let authPollIv = null;
-    function openAuth() {
-        document.getElementById('authModal').classList.add('open');
-        fetch('/api/auth/start').then(() => {
-            if (authPollIv) clearInterval(authPollIv);
-            authPollIv = setInterval(pollAuth, 2000);
-        });
-    }
-
-    function closeAuth() {
-        document.getElementById('authModal').classList.remove('open');
-        if (authPollIv) clearInterval(authPollIv);
-    }
-
-    async function pollAuth() {
-        try {
-            const res = await fetch('/api/auth/status');
-            const data = await res.json();
-            if (data.code) document.getElementById('authCode').textContent = data.code;
-            if (data.url) document.getElementById('authUrl').href = data.url;
-            
-            if (data.status === 'success') {
-                document.getElementById('authStatusText').textContent = '認証に成功しました！';
-                document.getElementById('authStatusText').style.color = 'var(--success)';
-                setTimeout(() => {
-                    closeAuth();
-                    // 必要に応じて再試行を促す
-                }, 2000);
-            } else if (data.status === 'error') {
-                document.getElementById('authStatusText').textContent = '認証に失敗しました。';
-                document.getElementById('authStatusText').style.color = 'var(--error)';
-            }
-        } catch(e) {}
     }
   </script>
 </body>
