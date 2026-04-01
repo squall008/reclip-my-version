@@ -38,11 +38,8 @@ def get_ydl_base_opts():
     """ボット回避とクッキーの全設定を生成して返す最強の盾"""
     cmd = [
         "--cache-dir", CACHE_DIR,
-        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-        "--add-header", "Referer: https://www.google.com/",
-        "--extractor-args", "youtube:player-client=android", # 2025年最新突破クライアント
-        "--no-check-certificates"
+        "--no-check-certificates",
+        "--quiet", "--no-warnings", # ログをクリーンに
     ]
     
     # 候補となるファイル名
