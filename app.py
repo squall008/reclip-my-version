@@ -1,12 +1,7 @@
-import os
-import uuid
-import glob
-import json
-import subprocess
-import threading
-import sys
 import time
+import re
 from flask import Flask, request, jsonify, send_file, render_template
+from googleapiclient.discovery import build
 
 try:
     import imageio_ffmpeg
@@ -14,42 +9,34 @@ try:
 except Exception:
     ffmpeg_path = None
 
-app = Flask(__name__)
+# 環境変数から設定を取得
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
+CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+youtube_service = None
+if YOUTUBE_API_KEY:
+    try:
+        youtube_service = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+    except Exception as e:
+        print(f"Failed to init YouTube API: {e}")
 
 jobs = {}
+auth_session = {"code": None, "url": None, "status": "idle"}
 
-def cleanup_old_files():
-    """1時間以上経過したデバッグファイルとメモリの古いジョブを自動削除するデーモン"""
-    while True:
-        try:
-            now = time.time()
-            # 古いジョブ履歴の削除
-            to_delete = []
-            for jid, job in jobs.items():
-                if job.get("created_at", now) < now - 3600:
-                    to_delete.append(jid)
-            for jid in to_delete:
-                del jobs[jid]
-
-            # 古いダウンロードファイルの削除
-            for root, _, files in os.walk(DOWNLOAD_DIR):
-                for f in files:
-                    filepath = os.path.join(root, f)
-                    if os.path.isfile(filepath):
-                        # 1時間 (3600秒) 以上経過したファイル
-                        if os.stat(filepath).st_mtime < now - 3600:
-                            try:
-                                os.remove(filepath)
-                            except OSError:
-                                pass
-        except Exception:
-            pass
-        time.sleep(600)  # 10分おきに実行
-
-threading.Thread(target=cleanup_old_files, daemon=True).start()
-
+def get_video_id(url):
+    """URLから動画IDを抽出"""
+    patterns = [
+        r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
+        r"youtu\.be\/([0-9A-Za-z_-]{11})",
+        r"youtube\.com\/shorts\/([0-9A-Za-z_-]{11})"
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m: return m.group(1)
+    return None
 
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
@@ -57,14 +44,15 @@ def run_download(job_id, url, format_choice, format_id):
 
     cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-o", out_template]
     
-    # ボット検出回避のためのブラウザ偽装オプションを追加
+    # 認証とボット回避オプション
     cmd += [
+        "--username", "oauth2", "--password", "", # OAuth2認証を使用
+        "--cache-dir", CACHE_DIR,
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
         "--add-header", "Referer: https://www.google.com/",
         "--extractor-args", "youtube:player-client=ios",
-        "--no-check-certificates",
-        "--geo-bypass"
+        "--no-check-certificates"
     ]
 
     if ffmpeg_path:
@@ -138,31 +126,50 @@ def get_info():
     data = request.json
     url = data.get("url", "").strip()
     if not url:
-        return jsonify({"error": "No URL provided"}), 400
+        return jsonify({"error": "URLを入力してください"}), 400
 
-    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", url]
-    
-    # ボット検出回避のためのブラウザ偽装オプションを追加
-    cmd += [
-        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-        "--add-header", "Referer: https://www.google.com/",
-        "--extractor-args", "youtube:player-client=ios",
-        "--no-check-certificates",
-        "--geo-bypass"
-    ]
+    # まず公式APIで情報を取得
+    video_id = get_video_id(url)
+    if youtube_service and video_id:
+        try:
+            req = youtube_service.videos().list(part="snippet,contentDetails", id=video_id)
+            res = req.execute()
+            if res.get("items"):
+                item = res["items"][0]
+                snip = item["snippet"]
+                # yt-dlpから補足情報を取得（形式リストなど）
+                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, url]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                formats = []
+                if result.returncode == 0:
+                    info_dlp = json.loads(result.stdout)
+                    for f in info_dlp.get("formats", []):
+                        h = f.get("height")
+                        if h and f.get("vcodec", "none") != "none":
+                            formats.append({"id": f["format_id"], "label": f"{h}p", "height": h})
+                    formats = sorted({f['label']: f for f in formats}.values(), key=lambda x: x["height"], reverse=True)
 
-    if ffmpeg_path:
-        cmd += ["--ffmpeg-location", ffmpeg_path]
+                return jsonify({
+                    "title": snip.get("title", ""),
+                    "thumbnail": snip.get("thumbnails", {}).get("high", {}).get("url", ""),
+                    "uploader": snip.get("channelTitle", ""),
+                    "formats": formats,
+                    "auth_needed": False
+                })
+        except Exception as e:
+            print(f"API Error: {e}")
 
+    # API失敗またはフォールバック
+    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
-            return jsonify({"error": result.stderr.strip().split("\n")[-1]}), 400
+            err = result.stderr.strip()
+            if "Sign in" in err or "confirm you're not a bot" in err:
+                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、認証（御札）が必要です"}), 401
+            return jsonify({"error": err.split("\n")[-1]}), 400
 
         info = json.loads(result.stdout)
-
-        # Build quality options — keep best format per resolution
         best_by_height = {}
         for f in info.get("formats", []):
             height = f.get("height")
@@ -173,11 +180,7 @@ def get_info():
 
         formats = []
         for height, f in best_by_height.items():
-            formats.append({
-                "id": f["format_id"],
-                "label": f"{height}p",
-                "height": height,
-            })
+            formats.append({"id": f["format_id"], "label": f"{height}p", "height": height})
         formats.sort(key=lambda x: x["height"], reverse=True)
 
         return jsonify({
@@ -187,10 +190,36 @@ def get_info():
             "uploader": info.get("uploader", ""),
             "formats": formats,
         })
-    except subprocess.TimeoutExpired:
-        return jsonify({"error": "Timed out fetching video info"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+@app.route("/api/auth/start")
+def auth_start():
+    """yt-dlpのOAuth2デバイス認証を開始"""
+    def run_auth():
+        auth_session["status"] = "authenticating"
+        # 認証用にダミーの取得を走らせる
+        cmd = [sys.executable, "-m", "yt_dlp", "--username", "oauth2", "--password", "", "--cache-dir", CACHE_DIR, "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in iter(proc.stdout.readline, ''):
+            m = re.search(r"code ([A-Z0-9-]+)", line)
+            if m:
+                auth_session["code"] = m.group(1)
+                auth_session["url"] = "https://www.google.com/device"
+            if "Successfully logged in" in line:
+                auth_session["status"] = "success"
+                break
+        proc.wait()
+        if auth_session["status"] != "success":
+            auth_session["status"] = "error"
+
+    threading.Thread(target=run_auth, daemon=True).start()
+    return jsonify({"status": "started"})
+
+@app.route("/api/auth/status")
+def auth_status():
+    return jsonify(auth_session)
+
 
 
 @app.route("/api/download", methods=["POST"])

@@ -1,2 +1,6 @@
 flask
 yt-dlp>=2024.03.10
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
