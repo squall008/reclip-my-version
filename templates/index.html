@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ReClip — Free Media Downloader</title>
+  <title>動画ポケット — 無料のメディア保存処</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f4f1eb;
-      --fg: #3a3a38;
-      --accent: #e85d2a;
-      --accent-hover: #d04e1f;
-      --muted: #9c9889;
-      --card: #fff;
-      --card-border: #e2ded6;
+      --bg: #f5f4f0;
+      --fg: #2b2b2b;
+      --accent: #d9333f;
+      --accent-hover: #b02731;
+      --muted: #8c877d;
+      --card: #ffffff;
+      --card-border: #e0dcd3;
       --success: #2d8a4e;
       --error: #c43d3d;
-      --radius: 14px;
-      --shimmer: linear-gradient(90deg, #ebe8e2 25%, #f0ede7 50%, #ebe8e2 75%);
+      --radius: 8px;
+      --shimmer: linear-gradient(90deg, #ecebdc 25%, #f2f0e6 50%, #ecebdc 75%);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'DM Mono', monospace;
+      font-family: 'Noto Sans JP', sans-serif;
       background: var(--bg);
       color: var(--fg);
       min-height: 100vh;
@@ -50,11 +50,11 @@
 
     .brand { margin-bottom: 48px; }
     .brand h1 {
-      font-family: 'Instrument Serif', serif;
-      font-size: 4.2rem;
-      font-weight: 400;
-      letter-spacing: -0.03em;
-      line-height: 1;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 3.8rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
       color: var(--fg);
     }
     .brand h1 em { font-style: italic; color: var(--accent); }
@@ -73,8 +73,8 @@
       border-radius: var(--radius);
       background: var(--card);
       color: var(--fg);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.88rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
       outline: none;
       resize: none;
       min-height: 56px;
@@ -109,15 +109,15 @@
     }
     .pill {
       padding: 9px 18px;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.76rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
       border: none;
       background: transparent;
       color: var(--muted);
       cursor: pointer;
       transition: all 0.2s;
       letter-spacing: 0.03em;
-      text-transform: uppercase;
     }
     .pill.active { background: var(--fg); color: var(--bg); }
     .pill:not(.active):hover { color: var(--fg); }
@@ -126,16 +126,15 @@
       flex: 1;
       padding: 10px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: var(--accent);
       color: #fff;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
       cursor: pointer;
       transition: background 0.2s, transform 0.1s;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     .fetch-btn:hover { background: var(--accent-hover); }
     .fetch-btn:active { transform: scale(0.98); }
@@ -219,8 +218,9 @@
       justify-content: center;
     }
     .card-title {
-      font-family: 'Instrument Serif', serif;
+      font-family: 'Noto Sans JP', sans-serif;
       font-size: 1rem;
+      font-weight: 700;
       line-height: 1.3;
       color: var(--fg);
       margin-bottom: 2px;
@@ -246,16 +246,15 @@
     .card-dl-btn {
       padding: 6px 14px;
       border: none;
-      border-radius: 7px;
+      border-radius: 6px;
       background: var(--fg);
       color: var(--bg);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.7rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.75rem;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       letter-spacing: 0.03em;
-      text-transform: uppercase;
     }
     .card-dl-btn:hover { background: #2d2d2a; }
     .card-dl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -276,8 +275,9 @@
       border-radius: 6px;
       background: transparent;
       color: var(--muted);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.65rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -329,16 +329,15 @@
       flex: 1;
       padding: 12px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: var(--fg);
       color: var(--bg);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
       letter-spacing: 0.04em;
-      text-transform: uppercase;
     }
     .dl-all-btn:hover { background: #2d2d2a; }
     .dl-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -383,19 +382,19 @@
 <body>
   <div class="page">
     <div class="brand">
-      <h1>Re<em>Clip</em></h1>
-      <p>Free media downloader</p>
+      <h1>動画<em>ポケット</em></h1>
+      <p>無料のメディア保存処</p>
     </div>
 
-    <textarea id="urls" placeholder="Paste one or more URLs..." rows="2"></textarea>
-    <p class="hint">Multiple links? Separate with spaces, commas, or newlines.</p>
+    <textarea id="urls" placeholder="保存したい動画のURLを貼り付けてください..." rows="2"></textarea>
+    <p class="hint">複数のURLを一度に貼り付けることも可能です（空白やカンマ、改行で区切ってください）。</p>
 
     <div class="controls">
       <div class="pill-group">
-        <button class="pill active" data-format="video" onclick="setFormat(this)">MP4</button>
-        <button class="pill" data-format="audio" onclick="setFormat(this)">MP3</button>
+        <button class="pill active" data-format="video" onclick="setFormat(this)">動画(MP4)</button>
+        <button class="pill" data-format="audio" onclick="setFormat(this)">音声(MP3)</button>
       </div>
-      <button class="fetch-btn" id="goBtn" onclick="go()">Fetch</button>
+      <button class="fetch-btn" id="goBtn" onclick="go()">取得する</button>
     </div>
 
     <div id="cards" class="cards"></div>
@@ -403,8 +402,8 @@
     <div class="footer">
       YouTube &middot; TikTok &middot; Instagram &middot; Twitter/X &middot; Reddit &middot; Facebook<br>
       Vimeo &middot; Twitch &middot; Dailymotion &middot; SoundCloud &middot; Loom &middot; Streamable<br>
-      Pinterest &middot; Tumblr &middot; Threads &middot; LinkedIn &middot; 1000+ more<br><br>
-      <a href="/terms" style="color:var(--muted); text-decoration:none; border-bottom:1px solid var(--card-border); padding-bottom: 2px; transition: color 0.2s, border-color 0.2s;" onmouseover="this.style.color='var(--accent)'; this.style.borderColor='var(--accent)';" onmouseout="this.style.color='var(--muted)'; this.style.borderColor='var(--card-border)';">Terms of Service</a>
+      Pinterest &middot; Tumblr &middot; Threads &middot; LinkedIn ... など1000サイト以上に対応<br><br>
+      <a href="/terms" style="color:var(--muted); text-decoration:none; border-bottom:1px solid var(--card-border); padding-bottom: 2px; transition: color 0.2s, border-color 0.2s;" onmouseover="this.style.color='var(--accent)'; this.style.borderColor='var(--accent)';" onmouseout="this.style.color='var(--muted)'; this.style.borderColor='var(--card-border)';">利用規約および免責事項</a>
     </div>
   </div>
 
@@ -436,15 +435,15 @@
     }
 
     function friendlyError(err) {
-      if (err.includes('Unsupported URL')) return 'This URL is not supported';
-      if (err.includes('Video unavailable')) return 'Video is unavailable or private';
-      if (err.includes('Private video')) return 'This video is private';
-      if (err.includes('HTTP Error 403')) return 'Access denied by the platform';
-      if (err.includes('HTTP Error 404')) return 'Video not found';
-      if (err.includes('copyright')) return 'Video blocked due to copyright';
-      if (err.includes('geo')) return 'Video not available in your region';
-      if (err.includes('timed out') || err.includes('Timed out')) return 'Request timed out — try again';
-      if (err.includes('network') || err.includes('Network')) return 'Network error — check your connection';
+      if (err.includes('Unsupported URL')) return 'このURLはサポートされていません';
+      if (err.includes('Video unavailable')) return 'この動画は非公開か削除されています';
+      if (err.includes('Private video')) return 'この動画はプライベート(鍵付き)です';
+      if (err.includes('HTTP Error 403')) return 'プラットフォーム側でアクセスが拒否されました';
+      if (err.includes('HTTP Error 404')) return '動画が見つかりません';
+      if (err.includes('copyright')) return '著作権によりブロックされています';
+      if (err.includes('geo')) return 'お住まいの地域では再生できない動画です';
+      if (err.includes('timed out') || err.includes('Timed out')) return '接続がタイムアウトしました。再試行してください';
+      if (err.includes('network') || err.includes('Network')) return 'ネットワークエラーが発生しました';
       return err.length > 80 ? err.slice(0, 80) + '...' : err;
     }
 
@@ -459,7 +458,7 @@
       const btn = document.getElementById('goBtn');
       const container = document.getElementById('cards');
       btn.disabled = true;
-      btn.textContent = 'Loading...';
+      btn.textContent = '取得中...';
       container.innerHTML = '';
       cardData = [];
 
@@ -501,7 +500,7 @@
       }
 
       btn.disabled = false;
-      btn.textContent = 'Fetch';
+      btn.textContent = '取得する';
     }
 
     function renderCard(idx) {
@@ -537,7 +536,7 @@
             </div>
           </div>
           <div class="card-body">
-            <div class="card-title" style="color:var(--error)">Could not fetch video</div>
+            <div class="card-title" style="color:var(--error)">動画情報の取得に失敗</div>
             <div class="card-error-msg">${esc(friendlyError(c.error || ''))}</div>
             <div class="card-error-url">${esc(c.url)}</div>
           </div>
@@ -567,21 +566,21 @@
 
       let actionHtml = '';
       if (c.status === 'ready') {
-        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${qualityChips}`;
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">保存</button>${qualityChips}`;
       } else if (c.status === 'downloading') {
-        actionHtml = `<span class="card-status downloading"><span class="spin"></span> Downloading...</span>`;
+        actionHtml = `<span class="card-status downloading"><span class="spin"></span> 保存中...</span>`;
       } else if (c.status === 'done') {
-        actionHtml = `<button class="card-dl-btn done" onclick="saveCard(${idx})">Save</button>
+        actionHtml = `<button class="card-dl-btn done" onclick="saveCard(${idx})">完了</button>
           <span class="card-status done">${esc(c.filename || '')}</span>`;
       } else if (c.status === 'error') {
-        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Retry</button>
-          <span class="card-status error">${esc(friendlyError(c.error || 'Download failed'))}</span>`;
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">再試行</button>
+          <span class="card-status error">${esc(friendlyError(c.error || '保存に失敗しました'))}</span>`;
       }
 
       el.innerHTML = `
         <div class="card-thumb">${thumbHtml}</div>
         <div class="card-body">
-          <div class="card-title">${esc(c.title || 'Untitled')}</div>
+          <div class="card-title">${esc(c.title || '無題')}</div>
           <div class="card-meta">${esc(c.uploader)}${c.duration ? ' · ' + fmtDur(c.duration) : ''}</div>
           <div class="card-actions">${actionHtml}</div>
         </div>
@@ -595,7 +594,7 @@
       const bar = document.createElement('div');
       bar.id = 'dl-all-bar';
       bar.className = 'dl-all-bar';
-      bar.innerHTML = `<button class="dl-all-btn" onclick="dlAll()">Download All</button>`;
+      bar.innerHTML = `<button class="dl-all-btn" onclick="dlAll()">すべて保存</button>`;
       document.getElementById('cards').appendChild(bar);
     }
 
@@ -658,7 +657,7 @@
         } catch {
           clearInterval(iv);
           c.status = 'error';
-          c.error = 'Lost connection to server';
+          c.error = 'サーバーとの通信が切断されました';
           renderCard(idx);
         }
       }, 1000);
@@ -675,7 +674,7 @@
 
     async function dlAll() {
       const btn = document.querySelector('.dl-all-btn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Downloading...'; }
+      if (btn) { btn.disabled = true; btn.textContent = 'すべて保存中...'; }
 
       for (let i = 0; i < cardData.length; i++) {
         if (cardData[i].status === 'ready') {
@@ -683,7 +682,7 @@
         }
       }
 
-      if (btn) { btn.disabled = false; btn.textContent = 'Download All'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'すべて保存'; }
     }
   </script>
 </body>

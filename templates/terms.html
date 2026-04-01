@@ -1,33 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ReClip — Terms of Service & Privacy Policy</title>
+  <title>動画ポケット — 利用規約および免責事項</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f4f1eb;
-      --fg: #3a3a38;
-      --accent: #e85d2a;
-      --accent-hover: #d04e1f;
-      --muted: #9c9889;
-      --card: #fff;
-      --card-border: #e2ded6;
-      --radius: 14px;
+      --bg: #f5f4f0;
+      --fg: #2b2b2b;
+      --accent: #d9333f;
+      --accent-hover: #b02731;
+      --muted: #8c877d;
+      --card: #ffffff;
+      --card-border: #e0dcd3;
+      --radius: 8px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'DM Mono', monospace;
+      font-family: 'Noto Sans JP', sans-serif;
       background: var(--bg);
       color: var(--fg);
       min-height: 100vh;
       overflow-x: hidden;
-      line-height: 1.6;
+      line-height: 1.8;
+      letter-spacing: 0.02em;
     }
 
     body::after {
@@ -48,20 +49,19 @@
 
     .brand { margin-bottom: 48px; }
     .brand h1 {
-      font-family: 'Instrument Serif', serif;
-      font-size: 3.2rem;
-      font-weight: 400;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
       color: var(--fg);
     }
-    .brand h1 em { font-style: italic; color: var(--accent); }
+    .brand h1 em { font-style: normal; color: var(--accent); }
     .brand p {
       margin-top: 10px;
-      font-size: 0.78rem;
+      font-size: 0.85rem;
       color: var(--muted);
       letter-spacing: 0.04em;
-      text-transform: uppercase;
     }
 
     .content-card {
@@ -73,12 +73,14 @@
     }
 
     h2 {
-      font-family: 'Instrument Serif', serif;
-      font-size: 1.8rem;
-      font-weight: 400;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
       margin-top: 32px;
       margin-bottom: 16px;
       color: var(--accent);
+      border-bottom: 1.5px solid var(--card-border);
+      padding-bottom: 6px;
     }
     
     h2:first-child {
@@ -86,7 +88,7 @@
     }
 
     p {
-      font-size: 0.88rem;
+      font-size: 0.95rem;
       color: var(--fg);
       margin-bottom: 16px;
     }
@@ -94,22 +96,15 @@
     ul {
       margin-left: 20px;
       margin-bottom: 16px;
-      font-size: 0.88rem;
+      font-size: 0.95rem;
     }
 
     li {
       margin-bottom: 8px;
     }
 
-    a {
-      color: var(--accent);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    
-    a:hover {
-      color: var(--accent-hover);
-      text-decoration: underline;
+    strong {
+      font-weight: 700;
     }
 
     .back-btn {
@@ -117,17 +112,16 @@
       margin-top: 12px;
       padding: 10px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: var(--fg);
       color: var(--bg);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
       cursor: pointer;
       text-decoration: none;
       transition: background 0.2s, transform 0.1s;
       letter-spacing: 0.04em;
-      text-transform: uppercase;
     }
     .back-btn:hover { background: #2d2d2a; text-decoration: none;}
     .back-btn:active { transform: scale(0.98); }
@@ -135,47 +129,46 @@
     .footer {
       margin-top: 48px;
       text-align: center;
-      font-size: 0.68rem;
+      font-size: 0.75rem;
       color: var(--muted);
       letter-spacing: 0.05em;
-      text-transform: uppercase;
     }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="brand">
-      <h1>Terms of <em>Service</em></h1>
-      <p>Please read carefully before using ReClip</p>
+      <h1>利用規約<em>および</em>免責事項</h1>
+      <p>動画ポケットをご利用になる前に必ずお読みください</p>
     </div>
 
     <div class="content-card">
-      <h2>1. About this Service</h2>
-      <p>ReClip is a free, self-hosted media downloading tool provided "as is". The service enables users to download content from various publicly accessible platforms solely for personal, offline viewing purposes.</p>
+      <h2>1. 本サービスについて</h2>
+      <p>「動画ポケット」は、様々な公開プラットフォームから動画等のメディアをダウンロードするための無料ツールです。本サービスによって提供される機能は「現状有姿」のものとし、専らユーザーご自身の個人的かつオフラインでの利用を目的としています。</p>
 
-      <h2>2. Fair Use & Copyright</h2>
-      <p>You agree to use this service exclusively for content that you either own, have explicit permission to download, or falls under "Fair Use" or "Fair Dealing" guidelines in your jurisdiction.</p>
+      <h2>2. 著作権と免責事項</h2>
+      <p>本サービスを利用してダウンロードするコンテンツは、ユーザー自身が著作権を保有しているか、明確な許諾を得ているか、あるいは法に基づく「私的利用」の範囲内である必要があります。</p>
       <ul>
-        <li><strong>No Redistribution:</strong> You may not re-upload, sell, or commercially exploit any content downloaded through this service.</li>
-        <li><strong>Respect Creators:</strong> ReClip is not intended to bypass paywalls or circumvent Digital Rights Management (DRM) protections.</li>
-        <li><strong>Responsibility:</strong> The user assumes all legal responsibility and liability associated with the copyright of the media downloaded. We (the operators) hold no responsibility for copyright infringement committed by users.</li>
+        <li><strong>再配布の禁止：</strong> 本サービスを通じて保存したコンテンツを無断で再アップロード、販売、その他の商用目的に利用することは禁止されています。</li>
+        <li><strong>権利者の尊重：</strong> 本サービスは、DRM（デジタル著作権管理）による保護や有料課金などの制限を不当に回避するためのものではありません。</li>
+        <li><strong>利用者の責任：</strong> ダウンロードしたメディアに関連する著作権上の法的責任は、すべてユーザー自身に帰属します。運営者は、ユーザーによる著作権侵害等について一切の責任を負いません。</li>
       </ul>
 
-      <h2>3. Data & Privacy</h2>
-      <p>We respect your privacy. ReClip is designed to be ephemeral:</p>
+      <h2>3. データとプライバシー</h2>
+      <p>本サービスはお客様のプライバシーを尊重し、安心してお使いいただけるよう以下の設計としています。</p>
       <ul>
-        <li><strong>No Tracking:</strong> We do not log your identifiable information or track your download history into any database.</li>
-        <li><strong>Automatic File Deletion:</strong> All downloaded media files are temporarily cached on the server for your immediate download. In order to protect server resources, <strong>all files are permanently deleted within 1 hour</strong> of generation.</li>
+        <li><strong>追跡の排除：</strong> 当サイトでは、ユーザーの個人情報の収集や、過去に何を保存したかなどのアクセス履歴・活動履歴のデータベース保存は一切行っておりません。</li>
+        <li><strong>データの自動破棄：</strong> サーバー保護およびプライバシーの観点から、生成・保存されたすべてのメディアファイルは、<strong>作成から1時間以内にサーバーから完全に自動削除</strong>されます。</li>
       </ul>
 
-      <h2>4. Limitation of Liability</h2>
-      <p>The developers and operators of ReClip shall not be held liable for any direct, indirect, or consequential damages resulting from the use or inability to use this service. Use at your own risk.</p>
+      <h2>4. 責任の制限</h2>
+      <p>「動画ポケット」の運営者および開発者は、本サービスの利用、または利用できなかったことによって生じる直接的、間接的なあらゆる損害について、いかなる責任も負いません。ご利用は自己責任でお願いいたします。</p>
     </div>
 
-    <a href="/" class="back-btn">&larr; Back to App</a>
+    <a href="/" class="back-btn">← アプリに戻る</a>
 
     <div class="footer">
-      ReClip &copy; 2026
+      動画ポケット &copy; 2026
     </div>
   </div>
 </body>
