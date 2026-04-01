@@ -42,15 +42,32 @@ def get_ydl_base_opts():
         "--quiet", "--no-warnings", # ログをクリーンに
     ]
     
-    # 候補となるファイル名
-    candidates = ["cookies.txt", "www.youtube.com_cookies.txt", "youtube.com_cookies.txt"]
+    # 候補となるファイル名 (巨大ファイル「cookies (1).txt」等にも対応)
+    candidates = ["cookies.txt", "www.youtube.com_cookies.txt", "youtube.com_cookies.txt", "cookies (1).txt"]
     current_dir = os.path.dirname(__file__)
     for filename in os.listdir(current_dir):
         if filename in candidates or filename.endswith("_cookies.txt"):
             path = os.path.join(current_dir, filename)
             if os.path.isfile(path) and os.path.getsize(path) > 0:
-                print(f"Applied bot-evasion shield with cookies: {filename}")
-                cmd += ["--cookies", path]
+                # --- 自動翻訳コンニャク（パッチ） ---
+                processed_path = os.path.join(current_dir, "processed_cookies.txt")
+                try:
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        raw_cookies = f.read()
+                    
+                    # 海外製yt-dlpが認識できるように、日本版ドメインを海外基準の .google.com へ変換
+                    fixed_cookies = raw_cookies.replace(".google.co.jp\t", ".google.com\t")
+                    fixed_cookies = fixed_cookies.replace("google.co.jp\t", "google.com\t")
+                    
+                    with open(processed_path, "w", encoding="utf-8") as f:
+                        f.write(fixed_cookies)
+                        
+                    print(f"Applied TRANSLATED bot-evasion shield with cookies: {filename} -> processed_cookies.txt")
+                    cmd += ["--cookies", processed_path]
+                except Exception as e:
+                    print(f"Cookie translation failed: {e}")
+                    # 万一失敗した場合は保険としてそのまま使う
+                    cmd += ["--cookies", path]
                 break
     return cmd
 
