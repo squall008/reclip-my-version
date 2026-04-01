@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReClip — Terms of Service & Privacy Policy</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --fg: #3a3a38;
+      --accent: #e85d2a;
+      --accent-hover: #d04e1f;
+      --muted: #9c9889;
+      --card: #fff;
+      --card-border: #e2ded6;
+      --radius: 14px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.03;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 128px;
+    }
+
+    .page {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    .brand { margin-bottom: 48px; }
+    .brand h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 3.2rem;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--fg);
+    }
+    .brand h1 em { font-style: italic; color: var(--accent); }
+    .brand p {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .content-card {
+      background: var(--card);
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.8rem;
+      font-weight: 400;
+      margin-top: 32px;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+    
+    h2:first-child {
+      margin-top: 0;
+    }
+
+    p {
+      font-size: 0.88rem;
+      color: var(--fg);
+      margin-bottom: 16px;
+    }
+
+    ul {
+      margin-left: 20px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .back-btn:hover { background: #2d2d2a; text-decoration: none;}
+    .back-btn:active { transform: scale(0.98); }
+
+    .footer {
+      margin-top: 48px;
+      text-align: center;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="brand">
+      <h1>Terms of <em>Service</em></h1>
+      <p>Please read carefully before using ReClip</p>
+    </div>
+
+    <div class="content-card">
+      <h2>1. About this Service</h2>
+      <p>ReClip is a free, self-hosted media downloading tool provided "as is". The service enables users to download content from various publicly accessible platforms solely for personal, offline viewing purposes.</p>
+
+      <h2>2. Fair Use & Copyright</h2>
+      <p>You agree to use this service exclusively for content that you either own, have explicit permission to download, or falls under "Fair Use" or "Fair Dealing" guidelines in your jurisdiction.</p>
+      <ul>
+        <li><strong>No Redistribution:</strong> You may not re-upload, sell, or commercially exploit any content downloaded through this service.</li>
+        <li><strong>Respect Creators:</strong> ReClip is not intended to bypass paywalls or circumvent Digital Rights Management (DRM) protections.</li>
+        <li><strong>Responsibility:</strong> The user assumes all legal responsibility and liability associated with the copyright of the media downloaded. We (the operators) hold no responsibility for copyright infringement committed by users.</li>
+      </ul>
+
+      <h2>3. Data & Privacy</h2>
+      <p>We respect your privacy. ReClip is designed to be ephemeral:</p>
+      <ul>
+        <li><strong>No Tracking:</strong> We do not log your identifiable information or track your download history into any database.</li>
+        <li><strong>Automatic File Deletion:</strong> All downloaded media files are temporarily cached on the server for your immediate download. In order to protect server resources, <strong>all files are permanently deleted within 1 hour</strong> of generation.</li>
+      </ul>
+
+      <h2>4. Limitation of Liability</h2>
+      <p>The developers and operators of ReClip shall not be held liable for any direct, indirect, or consequential damages resulting from the use or inability to use this service. Use at your own risk.</p>
+    </div>
+
+    <a href="/" class="back-btn">&larr; Back to App</a>
+
+    <div class="footer">
+      ReClip &copy; 2026
+    </div>
+  </div>
+</body>
+</html>

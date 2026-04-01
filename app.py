@@ -4,7 +4,15 @@ import glob
 import json
 import subprocess
 import threading
+import sys
+import time
 from flask import Flask, request, jsonify, send_file, render_template
+
+try:
+    import imageio_ffmpeg
+    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+except Exception:
+    ffmpeg_path = None
 
 app = Flask(__name__)
 DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
@@ -12,12 +20,44 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 jobs = {}
 
+def cleanup_old_files():
+    """1時間以上経過したデバッグファイルとメモリの古いジョブを自動削除するデーモン"""
+    while True:
+        try:
+            now = time.time()
+            # 古いジョブ履歴の削除
+            to_delete = []
+            for jid, job in jobs.items():
+                if job.get("created_at", now) < now - 3600:
+                    to_delete.append(jid)
+            for jid in to_delete:
+                del jobs[jid]
+
+            # 古いダウンロードファイルの削除
+            for root, _, files in os.walk(DOWNLOAD_DIR):
+                for f in files:
+                    filepath = os.path.join(root, f)
+                    if os.path.isfile(filepath):
+                        # 1時間 (3600秒) 以上経過したファイル
+                        if os.stat(filepath).st_mtime < now - 3600:
+                            try:
+                                os.remove(filepath)
+                            except OSError:
+                                pass
+        except Exception:
+            pass
+        time.sleep(600)  # 10分おきに実行
+
+threading.Thread(target=cleanup_old_files, daemon=True).start()
+
 
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
-    cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
+    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-o", out_template]
+    if ffmpeg_path:
+        cmd += ["--ffmpeg-location", ffmpeg_path]
 
     if format_choice == "audio":
         cmd += ["-x", "--audio-format", "mp3"]
@@ -77,6 +117,10 @@ def run_download(job_id, url, format_choice, format_id):
 def index():
     return render_template("index.html")
 
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 
 @app.route("/api/info", methods=["POST"])
 def get_info():
@@ -85,7 +129,10 @@ def get_info():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    cmd = ["yt-dlp", "--no-playlist", "-j", url]
+    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", url]
+    if ffmpeg_path:
+        cmd += ["--ffmpeg-location", ffmpeg_path]
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
@@ -136,7 +183,8 @@ def start_download():
         return jsonify({"error": "No URL provided"}), 400
 
     job_id = uuid.uuid4().hex[:10]
-    jobs[job_id] = {"status": "downloading", "url": url, "title": title}
+    jobs[job_id] = {"status": "downloading", "url": url, "title": title, "created_at": time.time()}
+
 
     thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id))
     thread.daemon = True

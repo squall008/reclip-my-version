@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: reclip
+    env: docker
+    plan: free
+    dockerCommand: "python app.py"
+    envVars:
+      - key: PORT
+        value: 8899
+    buildCommand: "" # Dockerfile handles build
