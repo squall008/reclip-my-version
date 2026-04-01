@@ -56,6 +56,17 @@ def run_download(job_id, url, format_choice, format_id):
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
     cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-o", out_template]
+    
+    # ボット検出回避のためのブラウザ偽装オプションを追加
+    cmd += [
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+        "--add-header", "Referer: https://www.google.com/",
+        "--extractor-args", "youtube:player-client=ios",
+        "--no-check-certificates",
+        "--geo-bypass"
+    ]
+
     if ffmpeg_path:
         cmd += ["--ffmpeg-location", ffmpeg_path]
 
@@ -130,6 +141,17 @@ def get_info():
         return jsonify({"error": "No URL provided"}), 400
 
     cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j", url]
+    
+    # ボット検出回避のためのブラウザ偽装オプションを追加
+    cmd += [
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+        "--add-header", "Referer: https://www.google.com/",
+        "--extractor-args", "youtube:player-client=ios",
+        "--no-check-certificates",
+        "--geo-bypass"
+    ]
+
     if ffmpeg_path:
         cmd += ["--ffmpeg-location", ffmpeg_path]
 
