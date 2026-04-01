@@ -74,7 +74,7 @@ def run_download(job_id, url, format_choice, format_id):
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "--add-header", "Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
         "--add-header", "Referer: https://www.google.com/",
-        "--extractor-args", "youtube:player-client=ios",
+        "--extractor-args", "youtube:player-client=android", # 2025年時点の推奨クライアント
         "--no-check-certificates"
     ]
 
@@ -165,6 +165,8 @@ def get_info():
                 cmd += get_cookies_opt()
                 cmd += [url]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                if result.returncode != 0:
+                    print(f"DEBUG: yt-dlp error in API fallback: {result.stderr}")
                 formats = []
                 if result.returncode == 0:
                     info_dlp = json.loads(result.stdout)
@@ -192,8 +194,9 @@ def get_info():
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
             err = result.stderr.strip()
+            print(f"FATAL: yt-dlp extraction failed: {err}") # 詳細ログをRenderに出力
             if "Sign in" in err or "confirm you're not a bot" in err:
-                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、クッキーを適用してください（cookies.txt）"}), 401
+                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、シークレット窓でクッキーを取得し直してプッシュしてください（cookies.txt）"}), 401
             return jsonify({"error": err.split("\n")[-1]}), 400
 
         info = json.loads(result.stdout)
