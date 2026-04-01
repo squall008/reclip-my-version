@@ -35,10 +35,18 @@ if YOUTUBE_API_KEY:
 jobs = {}
 
 def get_cookies_opt():
-    """プロジェクトルートに cookies.txt があればオプションに追加"""
-    path = os.path.join(os.path.dirname(__file__), "cookies.txt")
-    if os.path.exists(path):
-        return ["--cookies", path]
+    """プロジェクトルートにあるクッキーファイルを自動検知して適用"""
+    # 候補となるファイル名
+    candidates = ["cookies.txt", "www.youtube.com_cookies.txt", "youtube.com_cookies.txt"]
+    
+    # 探索: 直接指定または _cookies.txt で終わるファイル
+    current_dir = os.path.dirname(__file__)
+    for filename in os.listdir(current_dir):
+        if filename in candidates or filename.endswith("_cookies.txt"):
+            path = os.path.join(current_dir, filename)
+            if os.path.isfile(path) and os.path.getsize(path) > 0:
+                print(f"Applied cookies: {filename}")
+                return ["--cookies", path]
     return []
 
 def get_video_id(url):
