@@ -268,75 +268,72 @@ def get_info():
     if not url:
         return jsonify({"error": "URLを入力してください"}), 400
 
-    # まず公式APIで情報を取得
     video_id = get_video_id(url)
-    if youtube_service and video_id:
+
+    # === 第1段階: YouTube 公式 Data API v3（APIキーが必要） ===
+    API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
+    if API_KEY and video_id:
         try:
-            req = youtube_service.videos().list(part="snippet,contentDetails", id=video_id)
-            res = req.execute()
-            if res.get("items"):
-                item = res["items"][0]
-                snip = item["snippet"]
-                
-                # サムネの最高画質を柔軟に取得
+            api_url = f"https://www.googleapis.com/youtube/v3/videos?id={video_id}&key={API_KEY}&part=snippet"
+            res = requests.get(api_url, timeout=10)
+            data_api = res.json()
+            if "items" in data_api and len(data_api["items"]) > 0:
+                snip = data_api["items"][0]["snippet"]
                 thumb_info = snip.get("thumbnails", {})
                 thumb_url = ""
-                if "maxres" in thumb_info:
-                    thumb_url = thumb_info["maxres"]["url"]
-                elif "high" in thumb_info:
-                    thumb_url = thumb_info["high"]["url"]
-                elif "medium" in thumb_info:
-                    thumb_url = thumb_info["medium"]["url"]
-                elif "default" in thumb_info:
-                    thumb_url = thumb_info["default"]["url"]
-                    
-                print(f"Official YouTube API OK! Skipping yt-dlp pre-check to avoid early ban!")
+                for quality in ["maxres", "high", "medium", "default"]:
+                    if quality in thumb_info:
+                        thumb_url = thumb_info[quality]["url"]
+                        break
+                print(f"[INFO] YouTube Data API SUCCESS for {video_id}")
                 return jsonify({
                     "title": snip.get("title", ""),
                     "thumbnail": thumb_url,
                     "uploader": snip.get("channelTitle", ""),
                     "formats": [],
-                    "auth_needed": False
+                })
+            else:
+                print(f"[INFO] YouTube Data API returned no items for {video_id}")
+        except Exception as e:
+            print(f"[INFO] YouTube Data API failed: {e}")
+
+    # === 第2段階: YouTube oEmbed（無料・APIキー不要） ===
+    if video_id:
+        try:
+            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+            res = requests.get(oembed_url, timeout=10)
+            if res.status_code == 200:
+                oembed = res.json()
+                print(f"[INFO] oEmbed SUCCESS for {video_id}")
+                return jsonify({
+                    "title": oembed.get("title", ""),
+                    "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                    "uploader": oembed.get("author_name", ""),
+                    "formats": [],
                 })
         except Exception as e:
-            print(f"API Error: {e}")
+            print(f"[INFO] oEmbed failed: {e}")
 
-    # API失敗またはフォールバック
-    cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j"]
-    cmd += get_ydl_base_opts()
-    cmd += [url]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode != 0:
-            err = result.stderr.strip()
-            print(f"FATAL: yt-dlp extraction failed: {err}") # 詳細ログをRenderに出力
-            if "Sign in" in err or "confirm you're not a bot" in err:
-                return jsonify({"error": "authentication_required", "msg": "ボット判定を回避するため、シークレット窓でクッキーを取得し直してプッシュしてください（cookies.txt）"}), 401
-            return jsonify({"error": err.split("\n")[-1]}), 400
-
-        info = json.loads(result.stdout)
-        best_by_height = {}
-        for f in info.get("formats", []):
-            height = f.get("height")
-            if height and f.get("vcodec", "none") != "none":
-                tbr = f.get("tbr") or 0
-                if height not in best_by_height or tbr > (best_by_height[height].get("tbr") or 0):
-                    best_by_height[height] = f
-
-        formats = []
-        for height, f in best_by_height.items():
-            formats.append({"id": f["format_id"], "label": f"{height}p", "height": height})
-        formats.sort(key=lambda x: x["height"], reverse=True)
-
+    # === 第3段階: 最小限カード（URLだけで表示） ===
+    # yt-dlpは絶対に呼ばない（Render上では確実にIPブロックされるため）
+    if video_id:
+        print(f"[INFO] All API methods failed. Returning minimal card for {video_id}")
         return jsonify({
-            "title": info.get("title", ""),
-            "thumbnail": info.get("thumbnail", ""),
-            "duration": info.get("duration"),
-            "uploader": info.get("uploader", ""),
-            "formats": formats,
+            "title": f"YouTube動画 ({video_id})",
+            "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+            "uploader": "",
+            "formats": [],
         })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+
+    # YouTube以外のURLの場合もyt-dlpは使わず、Cobaltに任せる
+    print(f"[INFO] Non-YouTube URL or unknown format. Returning minimal card.")
+    return jsonify({
+        "title": url.split("/")[-1][:50] or "動画",
+        "thumbnail": "",
+        "uploader": "",
+        "formats": [],
+    })
+
 
 
 @app.route("/api/download", methods=["POST"])
