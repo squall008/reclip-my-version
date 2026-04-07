@@ -44,6 +44,10 @@ def get_ydl_base_opts():
         "--min-sleep-interval", "2",
         "--max-sleep-interval", "5",
         "--sleep-requests", "1",
+        # 2026年最新の回避策: ブラウザ（Chrome）になりすます (curl-cffiが必須)
+        "--impersonate", "chrome",
+        # プレイヤークライアントを明示的に指定してIPブロックを回避
+        "--extractor-args", "youtube:player_client=android,ios,web",
     ]
     
     # 候補となるファイル名
