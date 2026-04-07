@@ -40,7 +40,9 @@ def get_ydl_base_opts():
     cmd = [
         "--cache-dir", CACHE_DIR,
         "--no-check-certificates",
-        "--quiet", "--no-warnings", # ログをクリーンに
+        "--quiet", "--no-warnings",
+        # クラウドIP回避: モバイルウェブクライアント偽装
+        "--extractor-args", "youtube:player_client=mweb",
     ]
     
     # 候補となるファイル名 (巨大ファイル「cookies (1).txt」等にも対応)
@@ -84,8 +86,14 @@ def download_via_cobalt(url, out_dir, job_id=""):
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
+    # youtu.be短縮URLをフルURLに正規化（Cobaltが対応しやすい形式に）
+    normalized_url = url
+    video_id_match = re.search(r'youtu\.be/([0-9A-Za-z_-]{11})', url)
+    if video_id_match:
+        normalized_url = f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
+    
     payload = {
-        "url": url,
+        "url": normalized_url,
         "videoQuality": "1080",
         "youtubeVideoCodec": "h264",
     }
@@ -376,6 +384,47 @@ def download_file(job_id):
     if not job or job["status"] != "done":
         return jsonify({"error": "File not ready"}), 404
     return send_file(job["file"], as_attachment=True, download_name=job["filename"])
+
+
+@app.route("/api/debug")
+def debug_info():
+    """Render上の環境・接続状況を診断するエンドポイント"""
+    results = {"api_key": bool(os.environ.get("YOUTUBE_API_KEY")), "cobalt_tests": [], "cookies": "none"}
+    
+    # クッキーファイル確認
+    current_dir = os.path.dirname(__file__)
+    for f in os.listdir(current_dir):
+        if "cookie" in f.lower() and f.endswith(".txt"):
+            path = os.path.join(current_dir, f)
+            results["cookies"] = f"{f} ({os.path.getsize(path)} bytes)"
+            break
+    
+    # 各Cobaltインスタンスのヘルスチェック
+    COBALT_INSTANCES = [
+        "https://cobalt-api.meowing.de/",
+        "https://cobalt-backend.canine.tools/",
+        "https://capi.3kh0.net/",
+    ]
+    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # テスト用
+    for inst in COBALT_INSTANCES:
+        try:
+            # GETでインスタンス情報を取得
+            r = requests.get(inst, timeout=5)
+            info = r.json() if r.status_code == 200 else {}
+            # POSTでダウンロードテスト(実際にはDLしない)
+            r2 = requests.post(inst, json={"url": test_url, "videoQuality": "360"}, 
+                             headers={"Accept": "application/json", "Content-Type": "application/json"}, timeout=15)
+            results["cobalt_tests"].append({
+                "instance": inst,
+                "get_status": r.status_code,
+                "version": info.get("cobalt", {}).get("version", "?"),
+                "post_status": r2.status_code,
+                "post_body": r2.text[:300],
+            })
+        except Exception as e:
+            results["cobalt_tests"].append({"instance": inst, "error": str(e)})
+    
+    return jsonify(results)
 
 
 if __name__ == "__main__":
