@@ -74,71 +74,74 @@ def get_ydl_base_opts():
                 break
     return cmd
 
-def download_via_cobalt(url, out_dir, job_id=""):
-    """RenderのIPブラックリストを回避するため、Cobalt API（中継局）経由で動画をダウンロードする最終奥義"""
-    # コミュニティ公開インスタンス（スコア順、公式はBot保護で弾かれるため除外）
-    COBALT_INSTANCES = [
-        "https://cobalt-api.meowing.de/",      # 92% スコア
-        "https://cobalt-backend.canine.tools/", # 84% スコア
-        "https://capi.3kh0.net/",               # 80% スコア
-    ]
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-    # youtu.be短縮URLをフルURLに正規化（Cobaltが対応しやすい形式に）
-    normalized_url = url
-    video_id_match = re.search(r'youtu\.be/([0-9A-Za-z_-]{11})', url)
-    if video_id_match:
-        normalized_url = f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
-    
-    payload = {
-        "url": normalized_url,
-        "videoQuality": "1080",
-        "youtubeVideoCodec": "h264",
-    }
+def download_via_piped(url, out_dir, job_id=""):
+    """RenderのIPブロック回避：Piped API経由でYouTube動画をダウンロードする最終奥義"""
+    # VideoIDを抽出
+    vid = get_video_id(url)
+    if not vid:
+        print(f"[{job_id}] Piped: Could not extract video ID from {url}")
+        return None
 
-    for instance_url in COBALT_INSTANCES:
+    # 公開Pipedインスタンス（認証不要）
+    PIPED_INSTANCES = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.r4fo.com",
+        "https://api.piped.yt",
+        "https://pipedapi.darkness.services",
+        "https://pipedapi.drgns.space",
+    ]
+
+    for api_base in PIPED_INSTANCES:
         try:
-            print(f"[{job_id}] Cobalt Fallback → trying {instance_url}")
-            res = requests.post(instance_url, headers=headers, json=payload, timeout=30)
+            api_url = f"{api_base}/streams/{vid}"
+            print(f"[{job_id}] Piped → trying {api_url}")
+            res = requests.get(api_url, timeout=15, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
+            })
 
             if res.status_code != 200:
-                print(f"[{job_id}]   HTTP {res.status_code}: {res.text[:200]}")
+                print(f"[{job_id}]   HTTP {res.status_code}: {res.text[:150]}")
                 continue
 
             data = res.json()
-            status = data.get("status")
-            print(f"[{job_id}]   Response status: {status}")
-
-            dl_url = None
-            if status in ("tunnel", "redirect"):
-                dl_url = data.get("url")
-            elif status == "picker":
-                # 複数アイテムの場合は最初の動画を選択
-                picks = data.get("picker", [])
-                for p in picks:
-                    if p.get("type") in ("video", None):
-                        dl_url = p.get("url")
-                        break
-                if not dl_url and picks:
-                    dl_url = picks[0].get("url")
-            elif status == "error":
-                err = data.get("error", {})
-                print(f"[{job_id}]   Cobalt error: {err}")
-                continue
-            else:
-                print(f"[{job_id}]   Unknown status: {data}")
+            
+            if "error" in data and data["error"]:
+                print(f"[{job_id}]   Piped error: {data['error']}")
                 continue
 
-            if not dl_url:
-                print(f"[{job_id}]   No download URL in response")
+            # videoStreamsから最高品質のstream URLを取得
+            streams = data.get("videoStreams", [])
+            audio_streams = data.get("audioStreams", [])
+            
+            # 映像ストリーム内で音声付き(+最高画質)を探す
+            best_stream = None
+            best_height = 0
+            for s in streams:
+                h = s.get("height", 0) or 0
+                vonly = s.get("videoOnly", True)
+                stream_url = s.get("url", "")
+                if stream_url and not vonly and h > best_height:
+                    best_stream = s
+                    best_height = h
+            
+            # 音声付きストリームがなければ映像のみの最高品質
+            if not best_stream:
+                for s in streams:
+                    h = s.get("height", 0) or 0
+                    stream_url = s.get("url", "")
+                    if stream_url and h > best_height:
+                        best_stream = s
+                        best_height = h
+            
+            if not best_stream or not best_stream.get("url"):
+                print(f"[{job_id}]   No suitable stream found (streams: {len(streams)})")
                 continue
 
-            # ストリーミングダウンロード
-            print(f"[{job_id}]   Downloading from {dl_url[:80]}...")
+            dl_url = best_stream["url"]
+            print(f"[{job_id}]   Found {best_height}p stream, downloading...")
+            
             out_path = os.path.join(out_dir, f"{job_id}.mp4")
-            r = requests.get(dl_url, stream=True, timeout=120, headers={
+            r = requests.get(dl_url, stream=True, timeout=180, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
             })
             r.raise_for_status()
@@ -149,20 +152,21 @@ def download_via_cobalt(url, out_dir, job_id=""):
                         f.write(chunk)
 
             file_size = os.path.getsize(out_path)
-            if file_size < 1000:  # 1KB未満ならエラー
+            if file_size < 5000:  # 5KB未満ならエラー
                 print(f"[{job_id}]   File too small ({file_size}B), skipping")
                 os.remove(out_path)
                 continue
 
-            print(f"[{job_id}]   Cobalt Download SUCCESS! ({file_size / 1024 / 1024:.1f} MB)")
+            print(f"[{job_id}]   Piped Download SUCCESS! ({file_size / 1024 / 1024:.1f} MB)")
             return out_path
 
         except Exception as e:
-            print(f"[{job_id}]   Instance {instance_url} failed: {e}")
+            print(f"[{job_id}]   Instance {api_base} failed: {e}")
             continue
 
-    print(f"[{job_id}] All Cobalt instances failed.")
+    print(f"[{job_id}] All Piped instances failed.")
     return None
+
 
 def get_video_id(url):
     """URLから動画IDを抽出"""
@@ -202,7 +206,7 @@ def run_download(job_id, url, format_choice, format_id):
         # もしyt-dlpが失敗した場合はフォールバック発動
         if result.returncode != 0:
             print(f"[{job_id}] yt-dlp failed (Err: {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}). Initiating Cobalt API fallback...")
-            cobalt_file = download_via_cobalt(url, DOWNLOAD_DIR, job_id)
+            cobalt_file = download_via_piped(url, DOWNLOAD_DIR, job_id)
             if cobalt_file:
                 # Cobalt成功: ファイル情報を直接セット
                 job["status"] = "done"
@@ -389,7 +393,7 @@ def download_file(job_id):
 @app.route("/api/debug")
 def debug_info():
     """Render上の環境・接続状況を診断するエンドポイント"""
-    results = {"api_key": bool(os.environ.get("YOUTUBE_API_KEY")), "cobalt_tests": [], "cookies": "none"}
+    results = {"api_key": bool(os.environ.get("YOUTUBE_API_KEY")), "piped_tests": [], "cookies": "none"}
     
     # クッキーファイル確認
     current_dir = os.path.dirname(__file__)
@@ -399,30 +403,34 @@ def debug_info():
             results["cookies"] = f"{f} ({os.path.getsize(path)} bytes)"
             break
     
-    # 各Cobaltインスタンスのヘルスチェック
-    COBALT_INSTANCES = [
-        "https://cobalt-api.meowing.de/",
-        "https://cobalt-backend.canine.tools/",
-        "https://capi.3kh0.net/",
+    # 各Pipedインスタンスのヘルスチェック
+    PIPED_INSTANCES = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.r4fo.com",
+        "https://api.piped.yt",
+        "https://pipedapi.darkness.services",
+        "https://pipedapi.drgns.space",
     ]
-    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # テスト用
-    for inst in COBALT_INSTANCES:
+    test_vid = "dQw4w9WgXcQ"
+    for inst in PIPED_INSTANCES:
         try:
-            # GETでインスタンス情報を取得
-            r = requests.get(inst, timeout=5)
-            info = r.json() if r.status_code == 200 else {}
-            # POSTでダウンロードテスト(実際にはDLしない)
-            r2 = requests.post(inst, json={"url": test_url, "videoQuality": "360"}, 
-                             headers={"Accept": "application/json", "Content-Type": "application/json"}, timeout=15)
-            results["cobalt_tests"].append({
-                "instance": inst,
-                "get_status": r.status_code,
-                "version": info.get("cobalt", {}).get("version", "?"),
-                "post_status": r2.status_code,
-                "post_body": r2.text[:300],
+            r = requests.get(f"{inst}/streams/{test_vid}", timeout=10, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
             })
+            if r.status_code == 200:
+                data = r.json()
+                streams = data.get("videoStreams", [])
+                results["piped_tests"].append({
+                    "instance": inst,
+                    "status": "OK",
+                    "title": data.get("title", "?")[:50],
+                    "video_streams": len(streams),
+                    "audio_streams": len(data.get("audioStreams", [])),
+                })
+            else:
+                results["piped_tests"].append({"instance": inst, "status": f"HTTP {r.status_code}", "body": r.text[:200]})
         except Exception as e:
-            results["cobalt_tests"].append({"instance": inst, "error": str(e)})
+            results["piped_tests"].append({"instance": inst, "status": "ERROR", "error": str(e)})
     
     return jsonify(results)
 
