@@ -72,40 +72,89 @@ def get_ydl_base_opts():
                 break
     return cmd
 
-def download_via_cobalt(url, out_path, job_id=""):
+def download_via_cobalt(url, out_dir, job_id=""):
     """RenderのIPブラックリストを回避するため、Cobalt API（中継局）経由で動画をダウンロードする最終奥義"""
-    try:
-        print(f"[{job_id}] Cobalt API Fallback Initiative Started...")
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
-        }
-        payload = {
-            "url": url,
-            "videoQuality": "1080",
-        }
-        res = requests.post("https://api.cobalt.tools/api/json", headers=headers, json=payload, timeout=30)
-        res.raise_for_status()
-        data = res.json()
-        
-        if data.get("status") in ["stream", "redirect"]:
-            dl_url = data["url"]
-            print(f"[{job_id}] Cobalt DL streaming from {dl_url[:50]}...")
-            r = requests.get(dl_url, stream=True, timeout=60)
+    # コミュニティ公開インスタンス（スコア順、公式はBot保護で弾かれるため除外）
+    COBALT_INSTANCES = [
+        "https://cobalt-api.meowing.de/",      # 92% スコア
+        "https://cobalt-backend.canine.tools/", # 84% スコア
+        "https://capi.3kh0.net/",               # 80% スコア
+    ]
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "url": url,
+        "videoQuality": "1080",
+        "youtubeVideoCodec": "h264",
+    }
+
+    for instance_url in COBALT_INSTANCES:
+        try:
+            print(f"[{job_id}] Cobalt Fallback → trying {instance_url}")
+            res = requests.post(instance_url, headers=headers, json=payload, timeout=30)
+
+            if res.status_code != 200:
+                print(f"[{job_id}]   HTTP {res.status_code}: {res.text[:200]}")
+                continue
+
+            data = res.json()
+            status = data.get("status")
+            print(f"[{job_id}]   Response status: {status}")
+
+            dl_url = None
+            if status in ("tunnel", "redirect"):
+                dl_url = data.get("url")
+            elif status == "picker":
+                # 複数アイテムの場合は最初の動画を選択
+                picks = data.get("picker", [])
+                for p in picks:
+                    if p.get("type") in ("video", None):
+                        dl_url = p.get("url")
+                        break
+                if not dl_url and picks:
+                    dl_url = picks[0].get("url")
+            elif status == "error":
+                err = data.get("error", {})
+                print(f"[{job_id}]   Cobalt error: {err}")
+                continue
+            else:
+                print(f"[{job_id}]   Unknown status: {data}")
+                continue
+
+            if not dl_url:
+                print(f"[{job_id}]   No download URL in response")
+                continue
+
+            # ストリーミングダウンロード
+            print(f"[{job_id}]   Downloading from {dl_url[:80]}...")
+            out_path = os.path.join(out_dir, f"{job_id}.mp4")
+            r = requests.get(dl_url, stream=True, timeout=120, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
+            })
             r.raise_for_status()
+
             with open(out_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
+                for chunk in r.iter_content(chunk_size=65536):
                     if chunk:
                         f.write(chunk)
-            print(f"[{job_id}] Cobalt Fallback Download SUCCESS!")
-            return True
-        else:
-            print(f"[{job_id}] Cobalt API rejected or failed to process: {data}")
-            return False
-    except Exception as e:
-        print(f"[{job_id}] Cobalt Fallback Error: {e}")
-        return False
+
+            file_size = os.path.getsize(out_path)
+            if file_size < 1000:  # 1KB未満ならエラー
+                print(f"[{job_id}]   File too small ({file_size}B), skipping")
+                os.remove(out_path)
+                continue
+
+            print(f"[{job_id}]   Cobalt Download SUCCESS! ({file_size / 1024 / 1024:.1f} MB)")
+            return out_path
+
+        except Exception as e:
+            print(f"[{job_id}]   Instance {instance_url} failed: {e}")
+            continue
+
+    print(f"[{job_id}] All Cobalt instances failed.")
+    return None
 
 def get_video_id(url):
     """URLから動画IDを抽出"""
@@ -145,8 +194,20 @@ def run_download(job_id, url, format_choice, format_id):
         # もしyt-dlpが失敗した場合はフォールバック発動
         if result.returncode != 0:
             print(f"[{job_id}] yt-dlp failed (Err: {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}). Initiating Cobalt API fallback...")
-            fallback_success = download_via_cobalt(url, out_template, job_id)
-            if not fallback_success:
+            cobalt_file = download_via_cobalt(url, DOWNLOAD_DIR, job_id)
+            if cobalt_file:
+                # Cobalt成功: ファイル情報を直接セット
+                job["status"] = "done"
+                job["file"] = cobalt_file
+                ext = os.path.splitext(cobalt_file)[1]
+                title = job.get("title", "").strip()
+                if title:
+                    safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
+                    job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(cobalt_file)
+                else:
+                    job["filename"] = os.path.basename(cobalt_file)
+                return
+            else:
                 job["status"] = "error"
                 job["error"] = "YouTube側と中継サーバーの双方で保存が拒否されました"
                 return
