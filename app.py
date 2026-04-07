@@ -8,6 +8,7 @@ import sys
 import time
 import re
 from flask import Flask, request, jsonify, send_file, render_template
+import requests
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
@@ -71,6 +72,41 @@ def get_ydl_base_opts():
                 break
     return cmd
 
+def download_via_cobalt(url, out_path, job_id=""):
+    """RenderのIPブラックリストを回避するため、Cobalt API（中継局）経由で動画をダウンロードする最終奥義"""
+    try:
+        print(f"[{job_id}] Cobalt API Fallback Initiative Started...")
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
+        }
+        payload = {
+            "url": url,
+            "videoQuality": "1080",
+        }
+        res = requests.post("https://api.cobalt.tools/api/json", headers=headers, json=payload, timeout=30)
+        res.raise_for_status()
+        data = res.json()
+        
+        if data.get("status") in ["stream", "redirect"]:
+            dl_url = data["url"]
+            print(f"[{job_id}] Cobalt DL streaming from {dl_url[:50]}...")
+            r = requests.get(dl_url, stream=True, timeout=60)
+            r.raise_for_status()
+            with open(out_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            print(f"[{job_id}] Cobalt Fallback Download SUCCESS!")
+            return True
+        else:
+            print(f"[{job_id}] Cobalt API rejected or failed to process: {data}")
+            return False
+    except Exception as e:
+        print(f"[{job_id}] Cobalt Fallback Error: {e}")
+        return False
+
 def get_video_id(url):
     """URLから動画IDを抽出"""
     patterns = [
@@ -105,11 +141,18 @@ def run_download(job_id, url, format_choice, format_id):
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        # もしyt-dlpが失敗した場合はフォールバック発動
         if result.returncode != 0:
-            job["status"] = "error"
-            job["error"] = result.stderr.strip().split("\n")[-1]
-            return
-
+            print(f"[{job_id}] yt-dlp failed (Err: {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}). Initiating Cobalt API fallback...")
+            fallback_success = download_via_cobalt(url, out_template, job_id)
+            if not fallback_success:
+                job["status"] = "error"
+                job["error"] = "YouTube側と中継サーバーの双方で保存が拒否されました"
+                return
+        else:
+            print(f"[{job_id}] yt-dlp Exec SUCCESS")
+            
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{job_id}.*"))
         if not files:
             job["status"] = "error"
@@ -173,27 +216,25 @@ def get_info():
             if res.get("items"):
                 item = res["items"][0]
                 snip = item["snippet"]
-                # yt-dlpから補足情報を取得（形式リストなど）
-                cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "-j"]
-                cmd += get_ydl_base_opts()
-                cmd += [url]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-                if result.returncode != 0:
-                    print(f"DEBUG: yt-dlp error in API fallback: {result.stderr}")
-                formats = []
-                if result.returncode == 0:
-                    info_dlp = json.loads(result.stdout)
-                    for f in info_dlp.get("formats", []):
-                        h = f.get("height")
-                        if h and f.get("vcodec", "none") != "none":
-                            formats.append({"id": f["format_id"], "label": f"{h}p", "height": h})
-                    formats = sorted({f['label']: f for f in formats}.values(), key=lambda x: x["height"], reverse=True)
-
+                
+                # サムネの最高画質を柔軟に取得
+                thumb_info = snip.get("thumbnails", {})
+                thumb_url = ""
+                if "maxres" in thumb_info:
+                    thumb_url = thumb_info["maxres"]["url"]
+                elif "high" in thumb_info:
+                    thumb_url = thumb_info["high"]["url"]
+                elif "medium" in thumb_info:
+                    thumb_url = thumb_info["medium"]["url"]
+                elif "default" in thumb_info:
+                    thumb_url = thumb_info["default"]["url"]
+                    
+                print(f"Official YouTube API OK! Skipping yt-dlp pre-check to avoid early ban!")
                 return jsonify({
                     "title": snip.get("title", ""),
-                    "thumbnail": snip.get("thumbnails", {}).get("high", {}).get("url", ""),
+                    "thumbnail": thumb_url,
                     "uploader": snip.get("channelTitle", ""),
-                    "formats": formats,
+                    "formats": [],
                     "auth_needed": False
                 })
         except Exception as e:
