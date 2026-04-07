@@ -40,12 +40,13 @@ def get_ydl_base_opts():
     cmd = [
         "--cache-dir", CACHE_DIR,
         "--no-check-certificates",
-        "--quiet", "--no-warnings",
-        # クラウドIP回避: モバイルウェブクライアント偽装
-        "--extractor-args", "youtube:player_client=mweb",
+        # リクエストスロットリング（人間的な動きを模倣）
+        "--min-sleep-interval", "2",
+        "--max-sleep-interval", "5",
+        "--sleep-requests", "1",
     ]
     
-    # 候補となるファイル名 (巨大ファイル「cookies (1).txt」等にも対応)
+    # 候補となるファイル名
     candidates = ["cookies.txt", "www.youtube.com_cookies.txt", "youtube.com_cookies.txt", "cookies (1).txt"]
     current_dir = os.path.dirname(__file__)
     for filename in os.listdir(current_dir):
@@ -69,72 +70,86 @@ def get_ydl_base_opts():
                     cmd += ["--cookies", processed_path]
                 except Exception as e:
                     print(f"Cookie translation failed: {e}")
-                    # 万一失敗した場合は保険としてそのまま使う
                     cmd += ["--cookies", path]
                 break
     return cmd
 
-def download_via_piped(url, out_dir, job_id=""):
-    """RenderのIPブロック回避：Piped API経由でYouTube動画をダウンロードする最終奥義"""
-    # VideoIDを抽出
+
+def get_video_id(url):
+    """URLから動画IDを抽出"""
+    patterns = [
+        r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
+        r"youtu\.be\/([0-9A-Za-z_-]{11})",
+        r"youtube\.com\/shorts\/([0-9A-Za-z_-]{11})"
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m: return m.group(1)
+    return None
+
+
+def download_via_fallback(url, out_dir, job_id=""):
+    """複数の外部サービスを試行してダウンロードする最終奥義"""
     vid = get_video_id(url)
     if not vid:
-        print(f"[{job_id}] Piped: Could not extract video ID from {url}")
+        print(f"[{job_id}] Fallback: Could not extract video ID from {url}")
         return None
 
-    # 公開Pipedインスタンス（認証不要）
-    PIPED_INSTANCES = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.r4fo.com",
-        "https://api.piped.yt",
-        "https://pipedapi.darkness.services",
-        "https://pipedapi.drgns.space",
+    # === Invidious API 経由 ===
+    INVIDIOUS_INSTANCES = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://yewtu.be",
     ]
-
-    for api_base in PIPED_INSTANCES:
+    for inst in INVIDIOUS_INSTANCES:
         try:
-            api_url = f"{api_base}/streams/{vid}"
-            print(f"[{job_id}] Piped → trying {api_url}")
+            api_url = f"{inst}/api/v1/videos/{vid}"
+            print(f"[{job_id}] Invidious → trying {api_url}")
             res = requests.get(api_url, timeout=15, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
             })
-
             if res.status_code != 200:
-                print(f"[{job_id}]   HTTP {res.status_code}: {res.text[:150]}")
+                print(f"[{job_id}]   HTTP {res.status_code}")
                 continue
 
             data = res.json()
+            streams = data.get("formatStreams", []) + data.get("adaptiveFormats", [])
             
-            if "error" in data and data["error"]:
-                print(f"[{job_id}]   Piped error: {data['error']}")
-                continue
-
-            # videoStreamsから最高品質のstream URLを取得
-            streams = data.get("videoStreams", [])
-            audio_streams = data.get("audioStreams", [])
-            
-            # 映像ストリーム内で音声付き(+最高画質)を探す
+            # 音声付きストリームを優先
             best_stream = None
             best_height = 0
             for s in streams:
-                h = s.get("height", 0) or 0
-                vonly = s.get("videoOnly", True)
                 stream_url = s.get("url", "")
-                if stream_url and not vonly and h > best_height:
+                if not stream_url:
+                    continue
+                h = 0
+                res_label = s.get("resolution", s.get("qualityLabel", ""))
+                m = re.search(r'(\d+)p', res_label)
+                if m:
+                    h = int(m.group(1))
+                acodec = s.get("audioCodec") or s.get("audioQuality")
+                stype = s.get("type", "")
+                has_audio = bool(acodec) or ("audio" in stype.lower())
+                has_video = "video" in stype.lower() if stype else h > 0
+                if has_video and has_audio and h > best_height:
                     best_stream = s
                     best_height = h
             
-            # 音声付きストリームがなければ映像のみの最高品質
+            # 音声付きがなければ映像のみ
             if not best_stream:
                 for s in streams:
-                    h = s.get("height", 0) or 0
                     stream_url = s.get("url", "")
-                    if stream_url and h > best_height:
+                    if not stream_url:
+                        continue
+                    res_label = s.get("resolution", s.get("qualityLabel", ""))
+                    m = re.search(r'(\d+)p', res_label)
+                    h = int(m.group(1)) if m else 0
+                    if h > best_height:
                         best_stream = s
                         best_height = h
-            
+
             if not best_stream or not best_stream.get("url"):
-                print(f"[{job_id}]   No suitable stream found (streams: {len(streams)})")
+                print(f"[{job_id}]   No suitable stream (total: {len(streams)})")
                 continue
 
             dl_url = best_stream["url"]
@@ -152,33 +167,21 @@ def download_via_piped(url, out_dir, job_id=""):
                         f.write(chunk)
 
             file_size = os.path.getsize(out_path)
-            if file_size < 5000:  # 5KB未満ならエラー
+            if file_size < 5000:
                 print(f"[{job_id}]   File too small ({file_size}B), skipping")
                 os.remove(out_path)
                 continue
 
-            print(f"[{job_id}]   Piped Download SUCCESS! ({file_size / 1024 / 1024:.1f} MB)")
+            print(f"[{job_id}]   Invidious Download SUCCESS! ({file_size / 1024 / 1024:.1f} MB)")
             return out_path
 
         except Exception as e:
-            print(f"[{job_id}]   Instance {api_base} failed: {e}")
+            print(f"[{job_id}]   Instance {inst} failed: {e}")
             continue
 
-    print(f"[{job_id}] All Piped instances failed.")
+    print(f"[{job_id}] All fallback instances failed.")
     return None
 
-
-def get_video_id(url):
-    """URLから動画IDを抽出"""
-    patterns = [
-        r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
-        r"youtu\.be\/([0-9A-Za-z_-]{11})",
-        r"youtube\.com\/shorts\/([0-9A-Za-z_-]{11})"
-    ]
-    for p in patterns:
-        m = re.search(p, url)
-        if m: return m.group(1)
-    return None
 
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
@@ -205,19 +208,20 @@ def run_download(job_id, url, format_choice, format_id):
         
         # もしyt-dlpが失敗した場合はフォールバック発動
         if result.returncode != 0:
-            print(f"[{job_id}] yt-dlp failed (Err: {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}). Initiating Cobalt API fallback...")
-            cobalt_file = download_via_piped(url, DOWNLOAD_DIR, job_id)
-            if cobalt_file:
-                # Cobalt成功: ファイル情報を直接セット
+            print(f"[{job_id}] yt-dlp failed. stderr: {result.stderr[-500:] if result.stderr else 'none'}")
+            print(f"[{job_id}] Initiating fallback download...")
+            fallback_file = download_via_fallback(url, DOWNLOAD_DIR, job_id)
+            if fallback_file:
+                # フォールバック成功: ファイル情報を直接セット
                 job["status"] = "done"
-                job["file"] = cobalt_file
-                ext = os.path.splitext(cobalt_file)[1]
+                job["file"] = fallback_file
+                ext = os.path.splitext(fallback_file)[1]
                 title = job.get("title", "").strip()
                 if title:
                     safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
-                    job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(cobalt_file)
+                    job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(fallback_file)
                 else:
-                    job["filename"] = os.path.basename(cobalt_file)
+                    job["filename"] = os.path.basename(fallback_file)
                 return
             else:
                 job["status"] = "error"
@@ -250,7 +254,6 @@ def run_download(job_id, url, format_choice, format_id):
         job["file"] = chosen
         ext = os.path.splitext(chosen)[1]
         title = job.get("title", "").strip()
-        # Sanitize title for filename
         if title:
             safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
             job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
@@ -327,7 +330,6 @@ def get_info():
             print(f"[INFO] oEmbed failed: {e}")
 
     # === 第3段階: 最小限カード（URLだけで表示） ===
-    # yt-dlpは絶対に呼ばない（Render上では確実にIPブロックされるため）
     if video_id:
         print(f"[INFO] All API methods failed. Returning minimal card for {video_id}")
         return jsonify({
@@ -337,7 +339,7 @@ def get_info():
             "formats": [],
         })
 
-    # YouTube以外のURLの場合もyt-dlpは使わず、Cobaltに任せる
+    # YouTube以外のURL
     print(f"[INFO] Non-YouTube URL or unknown format. Returning minimal card.")
     return jsonify({
         "title": url.split("/")[-1][:50] or "動画",
@@ -345,7 +347,6 @@ def get_info():
         "uploader": "",
         "formats": [],
     })
-
 
 
 @app.route("/api/download", methods=["POST"])
@@ -361,7 +362,6 @@ def start_download():
 
     job_id = uuid.uuid4().hex[:10]
     jobs[job_id] = {"status": "downloading", "url": url, "title": title, "created_at": time.time()}
-
 
     thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id))
     thread.daemon = True
@@ -393,7 +393,7 @@ def download_file(job_id):
 @app.route("/api/debug")
 def debug_info():
     """Render上の環境・接続状況を診断するエンドポイント"""
-    results = {"api_key": bool(os.environ.get("YOUTUBE_API_KEY")), "piped_tests": [], "cookies": "none"}
+    results = {"api_key": bool(os.environ.get("YOUTUBE_API_KEY")), "invidious_tests": [], "cookies": "none"}
     
     # クッキーファイル確認
     current_dir = os.path.dirname(__file__)
@@ -403,34 +403,33 @@ def debug_info():
             results["cookies"] = f"{f} ({os.path.getsize(path)} bytes)"
             break
     
-    # 各Pipedインスタンスのヘルスチェック
-    PIPED_INSTANCES = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.r4fo.com",
-        "https://api.piped.yt",
-        "https://pipedapi.darkness.services",
-        "https://pipedapi.drgns.space",
+    # 各Invidiousインスタンスのヘルスチェック
+    INVIDIOUS_INSTANCES = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://yewtu.be",
     ]
     test_vid = "dQw4w9WgXcQ"
-    for inst in PIPED_INSTANCES:
+    for inst in INVIDIOUS_INSTANCES:
         try:
-            r = requests.get(f"{inst}/streams/{test_vid}", timeout=10, headers={
+            r = requests.get(f"{inst}/api/v1/videos/{test_vid}", timeout=10, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
             })
             if r.status_code == 200:
                 data = r.json()
-                streams = data.get("videoStreams", [])
-                results["piped_tests"].append({
+                fmt_streams = data.get("formatStreams", [])
+                adapt_streams = data.get("adaptiveFormats", [])
+                results["invidious_tests"].append({
                     "instance": inst,
                     "status": "OK",
                     "title": data.get("title", "?")[:50],
-                    "video_streams": len(streams),
-                    "audio_streams": len(data.get("audioStreams", [])),
+                    "format_streams": len(fmt_streams),
+                    "adaptive_streams": len(adapt_streams),
                 })
             else:
-                results["piped_tests"].append({"instance": inst, "status": f"HTTP {r.status_code}", "body": r.text[:200]})
+                results["invidious_tests"].append({"instance": inst, "status": f"HTTP {r.status_code}", "body": r.text[:200]})
         except Exception as e:
-            results["piped_tests"].append({"instance": inst, "status": "ERROR", "error": str(e)})
+            results["invidious_tests"].append({"instance": inst, "status": "ERROR", "error": str(e)})
     
     return jsonify(results)
 
